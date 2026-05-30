@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { API_BASE_URL } from '@/constants/api';
+import { SOCKET_URL } from '@/constants/api';
 
 interface SocketMessage {
   messageId?: string;
@@ -48,7 +48,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
 
     // Reuse existing socket or create new one
     if (!socketRef.current) {
-      const socket = io(API_BASE_URL, {
+      const socket = io(SOCKET_URL, {
         reconnection: true,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,

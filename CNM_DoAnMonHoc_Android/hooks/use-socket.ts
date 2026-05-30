@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { API_BASE_URL } from '@/constants/api';
+import { SOCKET_URL } from '@/constants/api';
 import { getSession, getSessionSync } from '@/services/session-storage';
 
 interface SocketMessage {
@@ -81,7 +81,7 @@ export const useSocket = (username: string | undefined, enabled: boolean = true)
 
       messageQueueRef.current = updateMessageById(messageQueueRef.current, messageId, message => ({
         ...message,
-        text: 'Tin nhan nay da bi thu hoi',
+        text: 'Tin nhắn này đã bị thu hồi',
         fileData: undefined,
         fileType: undefined,
         fileName: undefined,
@@ -91,7 +91,7 @@ export const useSocket = (username: string | undefined, enabled: boolean = true)
       setMessages(prev =>
         updateMessageById(prev, messageId, message => ({
           ...message,
-          text: 'Tin nhan nay da bi thu hoi',
+          text: 'Tin nhắn này đã bị thu hồi',
           fileData: undefined,
           fileType: undefined,
           fileName: undefined,
@@ -246,7 +246,7 @@ export const useSocket = (username: string | undefined, enabled: boolean = true)
     }
 
     if (!globalSocket) {
-      globalSocket = io(API_BASE_URL, {
+      globalSocket = io(SOCKET_URL, {
         reconnection: true,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,

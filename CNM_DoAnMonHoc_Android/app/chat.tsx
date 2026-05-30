@@ -555,13 +555,10 @@ export default function ChatScreen({ user }: any) {
         return;
       }
 
-      const messageData: any = {
+      const messageData: any = buildOutgoingMessagePayload({
         roomId: activeRoomId,
-        senderUsername: activeUser.username,
-        senderId: activeUser.username,
         text: msgInput,
-        time: new Date().toISOString(),
-      };
+      });
 
       // Attach file if selected
       if (attachmentPreview) {
@@ -569,9 +566,9 @@ export default function ChatScreen({ user }: any) {
         const mime = attachmentPreview.type || (attachmentPreview.name && attachmentPreview.name.endsWith('.mp4') ? 'video/mp4' : 'image/jpeg');
         const isRemote = attachmentPreview.isRemote || /^https?:\/\//i.test(attachmentPreview.uri);
         messageData.fileData = isRemote ? attachmentPreview.uri : (raw.startsWith('data:') ? raw : `data:${mime};base64,${raw}`);
-        messageData.fileType = attachmentPreview.type || mime;
+        messageData.fileType = getAttachmentKind(attachmentPreview.type || mime, attachmentPreview.name, attachmentPreview.uri);
         messageData.fileName = attachmentPreview.name;
-        messageData.msgType = inferMessageType(messageData.fileType, messageData.fileName, attachmentPreview.uri);
+        messageData.msgType = messageData.fileType;
       }
 
       // Send via Socket.io
@@ -677,19 +674,17 @@ export default function ChatScreen({ user }: any) {
     const isPoll = sourceType === 'poll' || !!forwardSourceMessage.pollData;
     const payload: any = {
       roomId: forwardTargetRoom,
-      senderUsername: activeUser.username,
-      senderId: activeUser.username,
       text: forwardSourceMessage.text || (isPoll ? forwardSourceMessage.pollData?.question || 'Bình chọn' : ''),
-      time: new Date().toISOString(),
       forwardedFrom: forwardSourceMessage.senderUsername || activeUser.username,
+      forwardFrom: forwardSourceMessage.senderUsername || activeUser.username,
       msgType: isPoll ? 'poll' : sourceType,
     };
 
     if (forwardSourceMessage.fileData) {
       payload.fileData = forwardSourceMessage.fileData;
-      payload.fileType = forwardSourceMessage.fileType;
+      payload.fileType = getAttachmentKind(forwardSourceMessage.fileType, forwardSourceMessage.fileName, forwardSourceMessage.fileData);
       payload.fileName = forwardSourceMessage.fileName;
-      payload.msgType = inferMessageType(payload.fileType, payload.fileName, payload.fileData);
+      payload.msgType = payload.fileType;
     }
 
     if (isPoll && forwardSourceMessage.pollData) {
@@ -697,7 +692,7 @@ export default function ChatScreen({ user }: any) {
       payload.text = forwardSourceMessage.pollData.question || payload.text;
     }
 
-    sendMessage(payload);
+    sendMessage(buildOutgoingMessagePayload(payload));
     setShowForwardModal(false);
     setForwardSourceMessage(null);
     setForwardTargetRoom('');
@@ -717,18 +712,15 @@ export default function ChatScreen({ user }: any) {
       return;
     }
 
-    sendMessage({
+    sendMessage(buildOutgoingMessagePayload({
       roomId: activeRoomId,
-      senderUsername: activeUser.username,
-      senderId: activeUser.username,
       text: pollQuestion.trim(),
-      time: new Date().toISOString(),
       msgType: 'poll',
       pollData: {
         question: pollQuestion.trim(),
         options,
       },
-    } as any);
+    } as any));
 
     setPollQuestion('');
     setPollOptions(['', '']);
@@ -767,6 +759,27 @@ export default function ChatScreen({ user }: any) {
   };
 
   const getMessageKey = (message: ChatMessage) => message.messageId || message.id || '';
+
+  const buildOutgoingMessagePayload = (payload: Record<string, any>) => {
+    const timestamp = new Date().toISOString();
+    const displayName = activeUser?.displayName || activeUser?.username || '';
+    const username = activeUser?.username || '';
+    const text = typeof payload.text === 'string' ? payload.text : '';
+
+    return {
+      ...payload,
+      roomId: String(payload.roomId || 'chung'),
+      sender: displayName,
+      senderDisplayName: displayName,
+      senderUsername: username,
+      senderId: username,
+      text,
+      content: payload.content ?? text,
+      time: payload.time || timestamp,
+      sentAt: payload.sentAt || timestamp,
+      createdAt: payload.createdAt || timestamp,
+    } as Omit<ChatMessage, 'messageId' | 'id'> & { roomId: string; senderUsername: string; senderId: string; sender: string; text: string; content: string };
+  };
 
   const getRoomLabel = (room?: { name?: string; isDM?: boolean } | null) => {
     if (!room) return '#Chung';
@@ -838,7 +851,7 @@ export default function ChatScreen({ user }: any) {
           const httpUri = uri.replace(/^file:\/\//, 'https://');
           if (await Linking.canOpenURL(httpUri)) await Linking.openURL(httpUri);
         }
-      } catch (e) {
+      } catch {
         Alert.alert('Lỗi', 'Không thể mở video ngoài ứng dụng');
       }
     };
@@ -920,6 +933,38 @@ export default function ChatScreen({ user }: any) {
       console.error('Error deleting message for me:', error);
       Alert.alert('Lỗi', 'Không thể xóa tin nhắn');
     }
+  };
+
+  const handleClearCurrentRoomHistory = () => {
+    if (!activeUser?.username || !activeRoomId) return;
+
+    const roomLabel = getRoomLabel(rooms.find(room => room.id === activeRoomId) || { id: activeRoomId, name: activeRoomId, isDM: activeRoomId.startsWith('dm_') });
+
+    Alert.alert(
+      'Xóa lịch sử phòng',
+      `Xóa toàn bộ lịch sử của ${roomLabel} trên thiết bị này?`,
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Xóa',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await axios.post(`${MESSAGE_API_BASE}/clear-history`, {
+                username: activeUser.username,
+                roomId: activeRoomId,
+              });
+
+              setAllMessages(prev => prev.filter(item => (item.roomId || 'chung') !== activeRoomId));
+              setSelectedMessage(null);
+            } catch (error) {
+              console.error('Error clearing history:', error);
+              Alert.alert('Lỗi', 'Không thể xóa lịch sử phòng');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleRecallMessage = async (message: ChatMessage) => {
@@ -1014,7 +1059,6 @@ export default function ChatScreen({ user }: any) {
       Alert.alert('Lỗi', 'Chỉ có thể sửa tin nhắn của chính bạn');
       return;
     }
-    setEditMessageText(message.text || '');
     setEditingMessage(message);
     setSelectedMessage(null);
   };
@@ -1133,6 +1177,9 @@ export default function ChatScreen({ user }: any) {
               </TouchableOpacity>
                 <TouchableOpacity style={styles.topActionButton} onPress={() => setShowRoomsList(true)}>
                   <Text style={styles.topActionText}>Chats</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.topActionButton} onPress={handleClearCurrentRoomHistory}>
+                  <Text style={styles.topActionText}>Clear</Text>
                 </TouchableOpacity>
               {!isWide && (
                 <TouchableOpacity style={styles.topActionButton} onPress={() => setShowMembersModal(true)}>

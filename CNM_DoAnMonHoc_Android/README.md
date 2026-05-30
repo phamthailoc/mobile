@@ -50,6 +50,17 @@ Frontend files were updated to keep Android/web chat behavior aligned:
 - Android-sent attachments are normalized with `msgType` so the web can render them as media instead of plain file cards.
 - Pinned messages now have a top summary strip and a pinned-messages modal on Android to match the web layout more closely.
 
+## Environment
+
+Create a local `.env` file in the Android project root.
+
+Required variable:
+
+- `EXPO_PUBLIC_API_URL=https://ngochien-ott.duckdns.org`
+- `EXPO_PUBLIC_SOCKET_URL=https://ngochien-ott.duckdns.org` (optional, defaults to `EXPO_PUBLIC_API_URL`)
+
+This app does not need AWS or Firebase secrets in the Android `.env`; those stay in the backend.
+
 If you continue the chat work, check `CNM_DoAnMonHoc_Frontend/src/components/chat/MessageItem.jsx` first for media rendering, and the Android chat screen for the send-side message shape.npx expo start -cnpx expo start -cnpx expo start -c
 
 ## Join the community
