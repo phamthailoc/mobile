@@ -60,7 +60,7 @@ export default function RootLayout() {
               try {
                 const data = response.notification.request.content.data || {};
                 if (data.roomId) {
-                  router.push({ pathname: '/chat', params: { roomId: data.roomId } } as any);
+                  router.push(`/chat?roomId=${encodeURIComponent(String(data.roomId))}`);
                 } else if (data.screen) {
                   router.push(data.screen);
                 }

@@ -22,146 +22,77 @@ export default function HomeScreen() {
   }, []);
 
   const publicCount = useMemo(() => groups.filter(g => g.isPublic).length, [groups]);
-  const privateCount = useMemo(() => groups.filter(g => !g.isPublic).length, [groups]);
 
   return (
     <SafeScreen>
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.headerSection}>
-          <View>
-            <Text style={styles.greeting}>Xin chào 👋</Text>
-            <Text style={styles.userName}>{user?.displayName || 'Bạn'}</Text>
-          </View>
-          <View style={styles.avatarPlaceholder}>
-            <Ionicons name="person-circle" size={48} color="#3b82f6" />
-          </View>
+        <View style={styles.heroCard}>
+          <Text style={styles.heroTitle}>Chào mừng trở lại, {user?.displayName || user?.username || 'Bạn'}</Text>
+          <Text style={styles.heroSubtitle}>Kết nối, chia sẻ và làm việc hiệu quả hơn mỗi ngày.</Text>
         </View>
 
-        {/* Stats Row */}
         <View style={styles.statsSection}>
           <View style={styles.statCard}>
-            <Ionicons name="people" size={24} color="#3b82f6" />
+            <View style={[styles.statIcon, { backgroundColor: '#ecfdf5' }]}>
+              <Ionicons name="pulse" size={20} color="#10b981" />
+            </View>
+            <Text style={styles.statTitle}>Đang trực tuyến</Text>
+            <Text style={styles.statNumber}>1</Text>
+            <Text style={styles.statLabel}>Tài khoản trên hệ thống</Text>
+          </View>
+
+          <View style={styles.statCard}>
+            <View style={[styles.statIcon, { backgroundColor: '#eef2ff' }]}>
+              <Ionicons name="people-outline" size={20} color="#4f46e5" />
+            </View>
+            <Text style={styles.statTitle}>Danh bạ bạn bè</Text>
             <Text style={styles.statNumber}>{user?.friends?.length || 0}</Text>
-            <Text style={styles.statLabel}>Bạn bè</Text>
+            <Text style={styles.statLabel}>Đã kết nối</Text>
           </View>
+
           <View style={styles.statCard}>
-            <Ionicons name="lock-open" size={24} color="#10b981" />
+            <View style={[styles.statIcon, { backgroundColor: '#faf5ff' }]}>
+              <Ionicons name="globe-outline" size={20} color="#9333ea" />
+            </View>
+            <Text style={styles.statTitle}>Khám phá cộng đồng</Text>
             <Text style={styles.statNumber}>{publicCount}</Text>
-            <Text style={styles.statLabel}>Công khai</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Ionicons name="lock-closed" size={24} color="#f59e0b" />
-            <Text style={styles.statNumber}>{privateCount}</Text>
-            <Text style={styles.statLabel}>Riêng tư</Text>
+            <Text style={styles.statLabel}>Nhóm công khai</Text>
           </View>
         </View>
 
-        {/* Quick Actions */}
-        <View style={styles.sectionTitle}>
-          <Text style={styles.sectionTitleText}>Thao tác nhanh</Text>
+        <View style={styles.sectionGrid}>
+          <TouchableOpacity style={styles.socialFeedCard} onPress={() => router.push('/social')} activeOpacity={0.75}>
+            <View style={styles.centerIcon}>
+              <Ionicons name="chatbox-outline" size={34} color="#94a3b8" />
+            </View>
+            <Text style={styles.socialFeedTitle}>Social Feed</Text>
+            <Text style={styles.socialFeedDescription}>Xem bài viết, bình luận và chia sẻ mới nhất.</Text>
+          </TouchableOpacity>
+
+          <View style={styles.supportPanel}>
+            <View style={styles.panelTitleRow}>
+              <Ionicons name="shield-checkmark-outline" size={18} color="#4f46e5" />
+              <Text style={styles.panelTitle}>Hỗ trợ</Text>
+            </View>
+
+            <View style={styles.statusItem}>
+              <Ionicons name="checkmark-circle-outline" size={22} color="#10b981" />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.statusTitle}>Mọi dịch vụ hoạt động ổn định</Text>
+                <Text style={styles.statusText}>Server, Database và Socket đều sẵn sàng.</Text>
+              </View>
+            </View>
+
+            <TouchableOpacity style={styles.statusItem} onPress={() => setShowChatbot(true)} activeOpacity={0.75}>
+              <Ionicons name="help-circle-outline" size={22} color="#6366f1" />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.statusTitle}>Trợ lý Chatbot</Text>
+                <Text style={styles.statusText}>Hỏi trợ lý khi bạn cần hỗ trợ nhanh.</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#94a3b8" />
+            </TouchableOpacity>
+          </View>
         </View>
-        <TouchableOpacity
-          style={styles.actionCard}
-          onPress={() => router.push('/(tabs)/chat')}
-          activeOpacity={0.7}>
-          <Ionicons name="chatbubble-ellipses" size={28} color="#fff" />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.actionTitle}>Vào Chat</Text>
-            <Text style={styles.actionDescription}>Nhắn tin với bạn bè</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={24} color="#fff" />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.actionCard, { backgroundColor: '#10b981' }]}
-          onPress={() => router.push('/(tabs)/friends')}
-          activeOpacity={0.7}>
-          <Ionicons name="people" size={28} color="#fff" />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.actionTitle}>Bạn bè</Text>
-            <Text style={styles.actionDescription}>Quản lý bạn bè của bạn</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={24} color="#fff" />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.actionCard, { backgroundColor: '#8b5cf6' }]}
-          onPress={() => router.push('/(tabs)/explore')}
-          activeOpacity={0.7}>
-          <Ionicons name="compass" size={28} color="#fff" />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.actionTitle}>Khám phá</Text>
-            <Text style={styles.actionDescription}>Tìm nhóm mới</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={24} color="#fff" />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.actionCard, { backgroundColor: '#f59e0b' }]}
-          onPress={() => router.push('/social')}
-          activeOpacity={0.7}>
-          <Ionicons name="images" size={28} color="#fff" />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.actionTitle}>Social Feed</Text>
-            <Text style={styles.actionDescription}>Bai viet va binh luan</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={24} color="#fff" />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.actionCard, { backgroundColor: '#14b8a6' }]}
-          onPress={() => router.push('/stories')}
-          activeOpacity={0.7}>
-          <Ionicons name="albums" size={28} color="#fff" />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.actionTitle}>Stories</Text>
-            <Text style={styles.actionDescription}>Xem va dang story</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={24} color="#fff" />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.actionCard, { backgroundColor: '#64748b' }]}
-          onPress={() => router.push('/notifications')}
-          activeOpacity={0.7}>
-          <Ionicons name="notifications" size={28} color="#fff" />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.actionTitle}>Thong bao</Text>
-            <Text style={styles.actionDescription}>Cai dat push va lich su</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={24} color="#fff" />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.actionCard, { backgroundColor: '#0ea5e9' }]}
-          onPress={() => router.push('/search')}
-          activeOpacity={0.7}>
-          <Ionicons name="search" size={28} color="#fff" />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.actionTitle}>Tim kiem toan cuc</Text>
-            <Text style={styles.actionDescription}>User, nhom, bai viet</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={24} color="#fff" />
-        </TouchableOpacity>
-
-        {/* Chatbot Section */}
-        <View style={styles.sectionTitle}>
-          <Text style={styles.sectionTitleText}>Hỗ trợ</Text>
-        </View>
-        <TouchableOpacity
-          style={styles.chatbotCard}
-          onPress={() => setShowChatbot(true)}
-          activeOpacity={0.7}>
-          <View style={styles.chatbotIcon}>
-            <Ionicons name="help-circle" size={32} color="#fff" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.chatbotTitle}>Trợ lý Chatbot</Text>
-            <Text style={styles.chatbotDescription}>Hỏi tôi bất cứ điều gì</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={24} color="#6b7280" />
-        </TouchableOpacity>
 
         <ChatbotPopup visible={showChatbot} onClose={() => setShowChatbot(false)} />
       </ScrollView>
@@ -176,130 +107,144 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  headerSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 28,
+  heroCard: {
+    backgroundColor: '#7c3aed',
+    borderRadius: 18,
+    paddingHorizontal: 22,
+    paddingVertical: 26,
     marginTop: 8,
+    marginBottom: 18,
   },
-  greeting: {
+  heroTitle: {
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: '800',
+  },
+  heroSubtitle: {
+    color: 'rgba(255,255,255,0.88)',
     fontSize: 14,
-    color: '#64748b',
-    fontWeight: '500',
-  },
-  userName: {
-    fontSize: 28,
-    color: '#1e293b',
-    fontWeight: '700',
-    marginTop: 4,
-  },
-  avatarPlaceholder: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#e0e7ff',
-    justifyContent: 'center',
-    alignItems: 'center',
+    lineHeight: 20,
+    marginTop: 12,
+    fontWeight: '600',
   },
   statsSection: {
-    flexDirection: 'row',
     gap: 12,
-    marginBottom: 28,
+    marginBottom: 18,
   },
   statCard: {
-    flex: 1,
     backgroundColor: '#fff',
     borderRadius: 16,
     padding: 16,
-    alignItems: 'center',
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
     shadowRadius: 2,
+  },
+  statIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  statTitle: {
+    color: '#1e293b',
+    fontSize: 14,
+    fontWeight: '700',
   },
   statNumber: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1e293b',
-    marginTop: 8,
+    color: '#0f172a',
+    fontSize: 28,
+    fontWeight: '800',
+    marginTop: 14,
   },
   statLabel: {
-    fontSize: 12,
     color: '#64748b',
-    marginTop: 4,
+    fontSize: 12,
+    marginTop: 6,
     fontWeight: '500',
   },
-  sectionTitle: {
-    marginBottom: 12,
-    marginTop: 8,
+  sectionGrid: {
+    gap: 14,
+    paddingBottom: 28,
   },
-  sectionTitleText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1e293b',
-  },
-  actionCard: {
-    backgroundColor: '#3b82f6',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    marginBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    elevation: 3,
-    shadowColor: '#3b82f6',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-  },
-  actionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  actionDescription: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.8)',
-    marginTop: 4,
-    fontWeight: '500',
-  },
-  chatbotCard: {
+  socialFeedCard: {
+    minHeight: 190,
     backgroundColor: '#fff',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    marginBottom: 24,
-    flexDirection: 'row',
+    borderRadius: 18,
+    padding: 18,
     alignItems: 'center',
-    gap: 16,
+    justifyContent: 'center',
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
     shadowRadius: 2,
-    borderLeftWidth: 4,
-    borderLeftColor: '#3b82f6',
   },
-  chatbotIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: '#3b82f6',
-    justifyContent: 'center',
+  centerIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#f1f5f9',
     alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 18,
   },
-  chatbotTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1e293b',
+  socialFeedTitle: {
+    color: '#0f172a',
+    fontSize: 18,
+    fontWeight: '800',
   },
-  chatbotDescription: {
+  socialFeedDescription: {
+    color: '#475569',
     fontSize: 13,
+    lineHeight: 20,
+    textAlign: 'center',
+    marginTop: 10,
+  },
+  supportPanel: {
+    backgroundColor: '#fff',
+    borderRadius: 18,
+    padding: 16,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+  },
+  panelTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  panelTitle: {
+    color: '#0f172a',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  statusItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#f8fafc',
+    borderRadius: 14,
+    padding: 14,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#eef2f7',
+  },
+  statusTitle: {
+    color: '#1e293b',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  statusText: {
     color: '#64748b',
+    fontSize: 12,
+    lineHeight: 18,
     marginTop: 4,
-    fontWeight: '500',
   },
 });

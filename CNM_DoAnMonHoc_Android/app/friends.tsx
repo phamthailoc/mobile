@@ -177,7 +177,7 @@ export default function FriendsScreen({ user }: any) {
     if (!activeUsername) return;
     const roomId = `dm_${[activeUsername, friendUsername].sort().join('_')}`;
     router.push({
-      pathname: '/(tabs)/chat',
+      pathname: '/chat',
       params: {
         roomId,
         roomName: friendUsername,

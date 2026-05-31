@@ -65,7 +65,7 @@ export default function GroupsScreen({ user }: any) {
 
       if (createdGroup?.groupId) {
         router.push({
-          pathname: '/(tabs)/chat',
+          pathname: '/chat',
           params: {
             roomId: createdGroup.groupId,
             roomName: createdGroup.groupName || name,
@@ -87,6 +87,19 @@ export default function GroupsScreen({ user }: any) {
     setRefreshing(true);
     await loadGroups();
     setRefreshing(false);
+  };
+
+  const openGroupChat = (group: GroupItem) => {
+    const roomId = group.groupId || group.id;
+    if (!roomId) return;
+
+    router.push({
+      pathname: '/chat',
+      params: {
+        roomId,
+        roomName: group.groupName || roomId,
+      },
+    });
   };
 
   return (
@@ -126,7 +139,7 @@ export default function GroupsScreen({ user }: any) {
             ListEmptyComponent={<Text style={styles.emptyText}>Chưa có nhóm nào</Text>}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
             renderItem={({ item }) => (
-              <View style={styles.groupCard}>
+              <TouchableOpacity style={styles.groupCard} activeOpacity={0.85} onPress={() => openGroupChat(item)}>
                 <Ionicons name="people" size={36} color="#3b82f6" />
                 <View style={{ flex: 1, marginLeft: 12 }}>
                   <View style={styles.groupTitleRow}>
@@ -138,7 +151,7 @@ export default function GroupsScreen({ user }: any) {
                   <Text style={styles.owner}>Chủ nhóm: {item.owner || 'N/A'}</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={24} color="#94a3b8" />
-              </View>
+              </TouchableOpacity>
             )}
           />
         )}

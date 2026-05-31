@@ -17,6 +17,12 @@ interface SocketMessage {
   fileData?: string;
   fileType?: string;
   fileName?: string;
+  msgType?: string;
+  pollData?: {
+    question?: string;
+    options?: { text?: string; votes?: string[] }[];
+  };
+  forwardedFrom?: string;
   isRevoked?: boolean;
   isEdited?: boolean;
   editedAt?: string;

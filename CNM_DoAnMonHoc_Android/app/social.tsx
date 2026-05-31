@@ -134,6 +134,7 @@ export default function SocialScreen() {
 
   const reactPost = async (postId: string, emoji: string) => {
     if (!user?.username) return;
+    setActiveReactionPostId(null);
     try {
       await axios.post(`${API_BASE_URL}/api/posts/react`, {
         postId,

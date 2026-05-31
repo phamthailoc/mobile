@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, useWindowDimensions, ScrollView, Modal, Image, Alert, Linking } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, useWindowDimensions, ScrollView, Modal, Image, Alert, Linking, Pressable } from 'react-native';
 import axios from 'axios';
 import { API_BASE_URL } from '@/constants/api';
 import { useUserContext } from '@/context/user-context';
@@ -129,9 +129,10 @@ export default function ChatScreen({ user }: any) {
   const activeUser = user || contextUser;
   const [allMessages, setAllMessages] = useState<ChatMessage[]>([]);
   const [allGroups, setAllGroups] = useState<any[]>([]);
-  const [activeRoomId, setActiveRoomId] = useState('chung');
+  const [activeRoomId, setActiveRoomId] = useState('');
   const [msgInput, setMsgInput] = useState('');
   const [showSearch, setShowSearch] = useState(false);
+  const [showHeaderMenu, setShowHeaderMenu] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showMembersModal, setShowMembersModal] = useState(false);
   const [showRoomsList, setShowRoomsList] = useState(false);
@@ -340,7 +341,16 @@ export default function ChatScreen({ user }: any) {
 
   const rooms = useMemo(() => {
     const unique = new Map<string, { id: string; name: string; isDM: boolean; peerUsername?: string }>();
-    unique.set('chung', { id: 'chung', name: 'Chung', isDM: false });
+    const paramRoomId = typeof params.roomId === 'string' ? params.roomId : '';
+
+    if (paramRoomId) {
+      if (paramRoomId.startsWith('dm_')) {
+        const peer = paramRoomId.replace('dm_', '').split('_').find(p => p !== activeUser?.username) || String(params.roomName || 'DM');
+        unique.set(paramRoomId, { id: paramRoomId, name: String(params.roomName || peer), isDM: true, peerUsername: peer });
+      } else {
+        unique.set(paramRoomId, { id: paramRoomId, name: String(params.roomName || paramRoomId), isDM: false });
+      }
+    }
 
     allGroups.forEach(group => {
       const groupId = group.groupId || group.id;
@@ -367,7 +377,22 @@ export default function ChatScreen({ user }: any) {
       }
     });
     return Array.from(unique.values());
-  }, [allGroups, allMessages, activeUser?.role, activeUser?.username]);
+  }, [allGroups, allMessages, activeUser?.role, activeUser?.username, params.roomId, params.roomName]);
+
+  useEffect(() => {
+    if (rooms.length === 0) return;
+
+    const hasActiveRoom = rooms.some(room => room.id === activeRoomId);
+    if (!activeRoomId || !hasActiveRoom) {
+      const nextRoomId = typeof params.roomId === 'string' && params.roomId && rooms.some(room => room.id === params.roomId)
+        ? params.roomId
+        : rooms[0].id;
+
+      if (nextRoomId && nextRoomId !== activeRoomId) {
+        setActiveRoomId(nextRoomId);
+      }
+    }
+  }, [rooms, activeRoomId, params.roomId]);
 
   useEffect(() => {
     const dmPeers = rooms
@@ -541,6 +566,30 @@ export default function ChatScreen({ user }: any) {
     return Array.from(set);
   }, [filteredMessages, activeUser?.username]);
 
+  const sendOutgoingMessage = (payload: Record<string, any>) => {
+    if (!isConnected) {
+      Alert.alert('Lá»—i', 'ChÆ°a káº¿t ná»‘i Ä‘áº¿n mÃ¡y chá»§. Vui lÃ²ng thá»­ láº¡i.');
+      return false;
+    }
+
+    const messageId = payload.messageId || `local_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const messageData: any = buildOutgoingMessagePayload({
+      ...payload,
+      messageId,
+      readBy: [activeUser?.username].filter(Boolean),
+      deliveredTo: [activeUser?.username].filter(Boolean),
+    });
+
+    const optimisticMessage = normalizeMessage(messageData);
+    setAllMessages(prev => {
+      if (prev.some(message => getMessageKey(message) === messageId)) return prev;
+      return [...prev, optimisticMessage];
+    });
+    scrollOnNextUpdateRef.current = true;
+    sendMessage(messageData);
+    return true;
+  };
+
   const handleSend = async () => {
     if (!msgInput.trim() && !attachmentPreview) return;
     if (!isConnected) {
@@ -555,10 +604,10 @@ export default function ChatScreen({ user }: any) {
         return;
       }
 
-      const messageData: any = buildOutgoingMessagePayload({
+      const messageData: any = {
         roomId: activeRoomId,
         text: msgInput,
-      });
+      };
 
       // Attach file if selected
       if (attachmentPreview) {
@@ -571,8 +620,8 @@ export default function ChatScreen({ user }: any) {
         messageData.msgType = messageData.fileType;
       }
 
-      // Send via Socket.io
-      sendMessage(messageData);
+      const didSend = sendOutgoingMessage(messageData);
+      if (!didSend) return;
 
       // Clear input
       setMsgInput('');
@@ -692,10 +741,12 @@ export default function ChatScreen({ user }: any) {
       payload.text = forwardSourceMessage.pollData.question || payload.text;
     }
 
-    sendMessage(buildOutgoingMessagePayload(payload));
-    setShowForwardModal(false);
-    setForwardSourceMessage(null);
-    setForwardTargetRoom('');
+    const didSend = sendOutgoingMessage(payload);
+    if (didSend) {
+      setShowForwardModal(false);
+      setForwardSourceMessage(null);
+      setForwardTargetRoom('');
+    }
   };
 
   const handleCreatePoll = async () => {
@@ -712,7 +763,7 @@ export default function ChatScreen({ user }: any) {
       return;
     }
 
-    sendMessage(buildOutgoingMessagePayload({
+    const didSend = sendOutgoingMessage({
       roomId: activeRoomId,
       text: pollQuestion.trim(),
       msgType: 'poll',
@@ -720,7 +771,9 @@ export default function ChatScreen({ user }: any) {
         question: pollQuestion.trim(),
         options,
       },
-    } as any));
+    } as any);
+
+    if (!didSend) return;
 
     setPollQuestion('');
     setPollOptions(['', '']);
@@ -1158,6 +1211,8 @@ export default function ChatScreen({ user }: any) {
     </View>
   );
 
+  const currentRoom = rooms.find(room => room.id === activeRoomId) || rooms[0] || null;
+
   return (
     <SafeScreen>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -1165,29 +1220,93 @@ export default function ChatScreen({ user }: any) {
           <View style={styles.topBar}>
             <View style={{ flex: 1 }}>
               <Text style={styles.header} numberOfLines={1}>
-                {getRoomDisplayName(rooms.find(r => r.id === activeRoomId) || { id: 'chung', name: 'Chung', isDM: false })}
+                {currentRoom ? getRoomDisplayName(currentRoom) : 'Trò chuyện'}
               </Text>
               <Text style={styles.headerSubtext} numberOfLines={1}>
-                {getRoomSubtitle(rooms.find(r => r.id === activeRoomId) || { id: 'chung', name: 'Chung', isDM: false })}
+                {currentRoom ? getRoomSubtitle(currentRoom) : ''}
               </Text>
             </View>
             <View style={styles.topActions}>
-                <TouchableOpacity style={styles.topActionButton} onPress={() => setShowSearch(s => !s)}>
-                <Text style={styles.topActionText}>Search</Text>
+              <TouchableOpacity style={styles.topActionButton} onPress={() => setShowHeaderMenu(true)}>
+                <Text style={styles.topActionText}>{'>'}</Text>
               </TouchableOpacity>
-                <TouchableOpacity style={styles.topActionButton} onPress={() => setShowRoomsList(true)}>
-                  <Text style={styles.topActionText}>Chats</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.topActionButton} onPress={handleClearCurrentRoomHistory}>
-                  <Text style={styles.topActionText}>Clear</Text>
-                </TouchableOpacity>
-              {!isWide && (
-                <TouchableOpacity style={styles.topActionButton} onPress={() => setShowMembersModal(true)}>
-                  <Text style={styles.topActionText}>Members</Text>
-                </TouchableOpacity>
-              )}
             </View>
           </View>
+
+          <Modal visible={showHeaderMenu} transparent animationType="fade" onRequestClose={() => setShowHeaderMenu(false)}>
+            <Pressable style={styles.headerMenuBackdrop} onPress={() => setShowHeaderMenu(false)}>
+              <Pressable style={styles.headerMenuCard}>
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  <View style={styles.drawerProfile}>
+                    <View style={styles.drawerAvatar}>
+                      <Text style={styles.drawerAvatarText}>
+                        {(currentRoom ? getRoomDisplayName(currentRoom) : 'Chat').slice(0, 2).toUpperCase()}
+                      </Text>
+                    </View>
+                    <Text style={styles.drawerName} numberOfLines={1}>
+                      {currentRoom ? getRoomDisplayName(currentRoom) : 'Chat'}
+                    </Text>
+                    <Text style={styles.drawerHandle} numberOfLines={1}>
+                      {currentRoom ? getRoomSubtitle(currentRoom) : ''}
+                    </Text>
+                  </View>
+
+                  <View style={styles.drawerQuickRow}>
+                    <TouchableOpacity style={styles.drawerQuickBtn}>
+                      <Ionicons name="notifications" size={18} color="#64748b" />
+                      <Text style={styles.drawerQuickText}>Tắt âm</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.drawerQuickBtn} onPress={() => setShowPinnedMessages(true)}>
+                      <Ionicons name="pin" size={18} color="#64748b" />
+                      <Text style={styles.drawerQuickText}>Ghim</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.drawerQuickBtn}>
+                      <Ionicons name="person-add" size={18} color="#64748b" />
+                      <Text style={styles.drawerQuickText}>Thêm</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.drawerQuickBtn}>
+                      <Ionicons name="settings" size={18} color="#64748b" />
+                      <Text style={styles.drawerQuickText}>Cài đặt</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.drawerSection}>
+                    <Text style={styles.drawerSectionTitle}>Thông tin về đoạn chat</Text>
+                    <TouchableOpacity
+                      style={styles.drawerMenuItem}
+                      onPress={() => {
+                        setShowHeaderMenu(false);
+                        setShowSearch(prev => !prev);
+                      }}>
+                      <Ionicons name="search" size={16} color="#64748b" />
+                      <Text style={styles.drawerMenuText}>Tìm trong đoạn chat</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.drawerMenuItem}
+                      onPress={() => {
+                        setShowHeaderMenu(false);
+                        setShowPinnedMessages(true);
+                      }}>
+                      <Ionicons name="bookmark" size={16} color="#64748b" />
+                      <Text style={styles.drawerMenuText}>Xem tin nhắn đã ghim</Text>
+                    </TouchableOpacity>
+                    <View style={styles.drawerMenuItem}>
+                      <Ionicons name="bar-chart-outline" size={16} color="#64748b" />
+                      <Text style={styles.drawerMenuText}>Lịch sử bình chọn</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.drawerSection}>
+                    <Text style={styles.drawerSectionTitle}>Quyền riêng tư và hỗ trợ</Text>
+                    <TouchableOpacity style={styles.drawerMenuItem} onPress={handleClearCurrentRoomHistory}>
+                      <Ionicons name="trash" size={16} color="#ef4444" />
+                      <Text style={[styles.drawerMenuText, styles.drawerDangerText]}>Xóa lịch sử trò chuyện</Text>
+                    </TouchableOpacity>
+                  </View>
+                </ScrollView>
+              </Pressable>
+            </Pressable>
+          </Modal>
 
           {showSearch && (
             <TextInput
@@ -1844,13 +1963,48 @@ export default function ChatScreen({ user }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc', padding: 10 },
-  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  container: { flex: 1, backgroundColor: '#f8fafc', paddingHorizontal: 6, paddingTop: 8, paddingBottom: 6 },
+  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, paddingHorizontal: 4 },
   header: { fontSize: 22, fontWeight: '800', color: '#1e293b' },
   headerSubtext: { color: '#64748b', fontSize: 11, fontWeight: '700', marginTop: 2 },
   topActions: { flexDirection: 'row', gap: 8 },
   topActionButton: { backgroundColor: '#e2e8f0', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6 },
   topActionText: { color: '#475569', fontWeight: '700', fontSize: 12 },
+  headerMenuBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.28)',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    paddingVertical: 18,
+    paddingRight: 10,
+  },
+  headerMenuCard: {
+    width: '78%',
+    maxWidth: 320,
+    height: '92%',
+    backgroundColor: '#fff',
+    borderRadius: 18,
+    padding: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 6,
+  },
+  drawerProfile: { alignItems: 'center', paddingTop: 8, paddingBottom: 18, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  drawerAvatar: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#5865f2', alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  drawerAvatarText: { color: '#fff', fontSize: 24, fontWeight: '800' },
+  drawerName: { color: '#0f172a', fontSize: 16, fontWeight: '800' },
+  drawerHandle: { color: '#64748b', fontSize: 11, fontWeight: '600', marginTop: 3 },
+  drawerQuickRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 6, paddingVertical: 16 },
+  drawerQuickBtn: { flex: 1, alignItems: 'center', gap: 6 },
+  drawerQuickText: { color: '#64748b', fontSize: 10, fontWeight: '700', textAlign: 'center' },
+  drawerSection: { borderTopWidth: 1, borderTopColor: '#e2e8f0', paddingTop: 14, paddingBottom: 8 },
+  drawerSectionTitle: { color: '#0f172a', fontSize: 13, fontWeight: '800', marginBottom: 10 },
+  drawerMenuItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11 },
+  drawerMenuText: { color: '#334155', fontSize: 13, fontWeight: '600', flex: 1 },
+  drawerDangerText: { color: '#ef4444' },
   searchInput: {
     backgroundColor: '#fff',
     borderColor: '#cbd5e1',
@@ -1861,7 +2015,7 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     marginBottom: 8,
   },
-  mainContentRow: { flex: 1, flexDirection: 'row', gap: 10 },
+  mainContentRow: { flex: 1, flexDirection: 'row', gap: 8 },
   leftPanel: { width: 220, backgroundColor: '#fff', borderRadius: 14, padding: 10, borderWidth: 1, borderColor: '#e2e8f0' },
   leftHeader: { color: '#0ea5e9', fontWeight: '800', fontSize: 12, marginBottom: 8, textTransform: 'uppercase' },
   roomItem: { paddingVertical: 10, paddingHorizontal: 10, borderRadius: 12, marginBottom: 8, backgroundColor: '#f1f5f9' },
@@ -1876,14 +2030,14 @@ const styles = StyleSheet.create({
   leftFooterActions: { marginTop: 10, gap: 8 },
   smallNavBtn: { backgroundColor: '#e2e8f0', borderRadius: 10, paddingVertical: 8, alignItems: 'center' },
   smallNavText: { color: '#475569', fontSize: 12, fontWeight: '700' },
-  centerPanel: { flex: 1, backgroundColor: '#fff', borderRadius: 14, padding: 10, flexDirection: 'column', borderWidth: 1, borderColor: '#e2e8f0' },
+  centerPanel: { flex: 1, backgroundColor: '#fff', borderRadius: 18, paddingHorizontal: 8, paddingTop: 10, paddingBottom: 8, flexDirection: 'column', borderWidth: 1, borderColor: '#e2e8f0' },
   mobileRoomScroller: { marginBottom: 8, maxHeight: 40 },
   roomChip: { backgroundColor: '#f1f5f9', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8, marginRight: 8, borderWidth: 1, borderColor: '#cbd5e1' },
   roomChipActive: { backgroundColor: '#3b82f6', borderColor: '#3b82f6' },
   roomChipText: { color: '#475569', fontWeight: '700', fontSize: 12 },
   roomChipTextActive: { color: '#fff' },
-  message: { padding: 10, borderRadius: 10, marginVertical: 4, maxWidth: '84%' },
-  messagePoll: { maxWidth: '92%' },
+  message: { padding: 10, borderRadius: 10, marginVertical: 5, maxWidth: '84%' },
+  messagePoll: { maxWidth: '98%', alignSelf: 'stretch' },
   myMsg: { backgroundColor: '#3b82f6', alignSelf: 'flex-end' },
   otherMsg: { backgroundColor: '#e2e8f0', alignSelf: 'flex-start' },
   messageHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
@@ -2077,7 +2231,7 @@ const styles = StyleSheet.create({
   forwardRoomText: { color: '#1e293b', fontWeight: '700' },
   forwardRoomTextActive: { color: '#1d4ed8' },
   fileMenuCard: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 16, paddingBottom: 24 },
-  menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, borderRadius: 12, marginBottom: 8, backgroundColor: '#f1f5f9' },
+  menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 12, borderRadius: 12 },
   menuItemText: { color: '#1e293b', fontSize: 16, fontWeight: '600', marginLeft: 12 },
   menuItemTextCancel: { color: '#fff', fontSize: 16, fontWeight: '600', marginLeft: 12 },
   cancelBtn: { backgroundColor: '#ef4444' },
